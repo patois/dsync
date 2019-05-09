@@ -37,18 +37,32 @@ class hxe_hook_t(Hexrays_Hooks):
 
     def close_pseudocode(self, vd):
         self._reset_colors(vd.view_idx)
+        refresh_idaview_anyway()
+        return 0
+
+    def create_hint(self, vd):
+        ea_list = self._get_item_ea_list(vd)
+        count = len(ea_list)
+        if count:
+            lines = ["0x%x: %s\n" % (ea, generate_disasm_line(ea, 0)) for ea in ea_list]
+            postfix = "\n"+len(tag_remove(max(lines, key=len)))*"-"+"\n"
+            custom_hints = "".join(lines) + postfix
+            # ask decompiler to append default hints
+            return (2, custom_hints, custom_hints.count("\n") + 1)
+
         return 0
 
     def curpos(self, vd):
         # workaround for a bug in IDA/Decompiler <= 7.2
         vd.refresh_cpos(USE_KEYBOARD)
-
         self._reset_all_colors()
         self._apply_colors(vd)
+        refresh_idaview_anyway()
         return 0
 
     def cleanup(self):
         self._reset_all_colors()
+        refresh_idaview_anyway()
 
         if self.idbhook:
             self.idbhook.unhook()
@@ -85,7 +99,6 @@ class hxe_hook_t(Hexrays_Hooks):
         pseudocode[lineno].bgcolor = HL_COLOR
         for ea, _ in disasm_lines:
             set_item_color(ea, HL_COLOR)
-        refresh_idaview_anyway()
 
     def _get_item_indexes(self, line):
         indexes = []
@@ -102,15 +115,15 @@ class hxe_hook_t(Hexrays_Hooks):
         line = vd.cfunc.get_pseudocode()[lineno].line
        
         item_idxs = self._get_item_indexes(line)
-        ealist = {}
+        ea_list = {}
         for i in item_idxs:
             try:
                 item = vd.cfunc.treeitems.at(i)
                 if item and item.ea != BADADDR:
-                    ealist[item.ea] = None
+                    ea_list[item.ea] = None
             except:
                 pass
-        return sorted(ealist.keys())
+        return sorted(ea_list.keys())
 
 # -----------------------------------------------------------------------
 
