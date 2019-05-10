@@ -6,9 +6,10 @@ decompiled code to disassembly by default - use the TAB key for synchronizing fr
 disassembly to decompiled code).
 
 It also highlights all addresses (code and data definitions) involved. Pressing the
-hotkey Ctrl-Shift-S switches synchronization on and off.
+hotkey Ctrl-Shift-S switches synchronization on and off. Hovering over pseudocode
+items will display corresponding disassembled code in a hint window.
 
-The plugin was developed for and tested with IDA 7.2.
+The plugin requires IDA 7.2.
 """
 
 __author__ = 'Dennis Elser'
@@ -16,7 +17,6 @@ __author__ = 'Dennis Elser'
 HL_COLOR = 0xAD8044
 
 # -----------------------------------------------------------------------
-
 class idb_hook_t(IDB_Hooks):
     def __init__(self, hxehook):
         self.hxehook = hxehook
@@ -27,7 +27,6 @@ class idb_hook_t(IDB_Hooks):
         return 0
 
 # -----------------------------------------------------------------------
-
 class hxe_hook_t(Hexrays_Hooks):
     def __init__(self):
         Hexrays_Hooks.__init__(self)
@@ -126,18 +125,34 @@ class hxe_hook_t(Hexrays_Hooks):
         return sorted(ea_list.keys())
 
 # -----------------------------------------------------------------------
+def is_ida_version(requested):
+    rv = requested.split(".")
+    kv = get_kernel_version().split(".")
 
+    count = min(len(rv), len(kv))
+    if count:
+        for i in xrange(count):
+            if int(kv[i]) < int(rv[i]):
+                return False
+    return True
+
+# -----------------------------------------------------------------------
 class Dsync(ida_idaapi.plugin_t):
     flags = 0
     comment = ''
     help = ''
     flags = PLUGIN_MOD | PLUGIN_PROC
-    wanted_name = 'Toggle Dsync'
+    wanted_name = 'Toggle dsync'
     wanted_hotkey = 'Ctrl-Shift-S'
     hxehook = None
 
     def init(self):
-        return PLUGIN_KEEP if init_hexrays_plugin() else PLUGIN_SKIP
+        required_ver = "7.2"
+        if not is_ida_version(required_ver) and not init_hexrays_plugin():
+            print "%s requires IDA v%s and decompiler" % (Dsync.wanted_name, required_ver)
+            return PLUGIN_SKIP
+
+        return PLUGIN_KEEP
 
     def run(self, arg):
         if not Dsync.hxehook:
