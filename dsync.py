@@ -130,10 +130,12 @@ def is_ida_version(requested):
     kv = get_kernel_version().split(".")
 
     count = min(len(rv), len(kv))
-    if count:
-        for i in xrange(count):
-            if int(kv[i]) < int(rv[i]):
-                return False
+    if not count:
+        return False
+
+    for i in xrange(count):
+        if int(kv[i]) < int(rv[i]):
+            return False
     return True
 
 # -----------------------------------------------------------------------
@@ -141,17 +143,18 @@ class Dsync(ida_idaapi.plugin_t):
     flags = 0
     comment = ''
     help = ''
-    flags = PLUGIN_MOD | PLUGIN_PROC
+    flags = PLUGIN_MOD
     wanted_name = 'Toggle dsync'
     wanted_hotkey = 'Ctrl-Shift-S'
     hxehook = None
 
     def init(self):
         required_ver = "7.2"
-        if not is_ida_version(required_ver) and not init_hexrays_plugin():
-            print "%s requires IDA v%s and decompiler" % (Dsync.wanted_name, required_ver)
+        if not is_ida_version(required_ver) or not init_hexrays_plugin():
+            print "[!] '%s' is inactive (IDA v%s and decompiler required)." % (Dsync.wanted_name, required_ver)
             return PLUGIN_SKIP
 
+        print "[+] '%s' installed. %s activates/deactivates synchronization." % (Dsync.wanted_name, Dsync.wanted_hotkey)
         return PLUGIN_KEEP
 
     def run(self, arg):
