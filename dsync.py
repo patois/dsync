@@ -144,17 +144,17 @@ class Dsync(ida_idaapi.plugin_t):
     comment = ''
     help = ''
     flags = PLUGIN_MOD
-    wanted_name = 'Toggle dsync'
+    wanted_name = 'dsync'
     wanted_hotkey = 'Ctrl-Shift-S'
     hxehook = None
 
     def init(self):
         required_ver = "7.2"
         if not is_ida_version(required_ver) or not init_hexrays_plugin():
-            print "[!] '%s' is inactive (IDA v%s and decompiler required)." % (Dsync.wanted_name, required_ver)
+            msg ("[!] '%s' is inactive (IDA v%s and decompiler required).\n" % (Dsync.wanted_name, required_ver))
             return PLUGIN_SKIP
 
-        print "[+] '%s' installed. %s activates/deactivates synchronization." % (Dsync.wanted_name, Dsync.wanted_hotkey)
+        msg("[+] '%s' loaded. %s activates/deactivates synchronization.\n" % (Dsync.wanted_name, Dsync.wanted_hotkey))
         return PLUGIN_KEEP
 
     def run(self, arg):
@@ -166,7 +166,10 @@ class Dsync(ida_idaapi.plugin_t):
             Dsync.hxehook.cleanup()
             Dsync.hxehook = None
 
+        msg("[+] %s is %sabled now.\n" % (Dsync.wanted_name, "en" if Dsync.hxehook else "dis"))
+
     def term(self):
+        msg("[+] %s unloaded.\n" % (Dsync.wanted_name))
         if Dsync.hxehook:
             Dsync.hxehook.unhook()
             Dsync.hxehook.cleanup()
