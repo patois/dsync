@@ -35,19 +35,21 @@ class hxe_hook_t(Hexrays_Hooks):
         self.pseudocode_instances = {}
 
     def close_pseudocode(self, vd):
-        self._reset_colors(vd.view_idx)
+        self._reset_colors(vd.view_idx, ignore_vd=True)
         refresh_idaview_anyway()
         return 0
 
     def create_hint(self, vd):
-        ea_list = self._get_item_ea_list(vd)
-        count = len(ea_list)
-        if count:
-            lines = ["0x%x: %s\n" % (ea, generate_disasm_line(ea, 0)) for ea in ea_list]
-            postfix = "\n"+len(tag_remove(max(lines, key=len)))*"-"+"\n"
-            custom_hints = "".join(lines) + postfix
-            # ask decompiler to append default hints
-            return (2, custom_hints, custom_hints.count("\n") + 1)
+        result = self._get_vd_context(vd)
+        if result:
+            _, _, _, item_ea_list = result
+            count = len(item_ea_list)
+            if count:
+                lines = ["0x%x: %s\n" % (ea, generate_disasm_line(ea, 0)) for ea in item_ea_list]
+                postfix = "\n"+len(tag_remove(max(lines, key=len)))*"-"+"\n"
+                custom_hints = "".join(lines) + postfix
+                # ask decompiler to append default hints
+                return (2, custom_hints, custom_hints.count("\n") + 1)
 
         return 0
 
@@ -59,6 +61,10 @@ class hxe_hook_t(Hexrays_Hooks):
         refresh_idaview_anyway()
         return 0
 
+    def refresh_pseudocode(self, vd):
+        self._reset_all_colors(ignore_vd=True)
+        return 0
+
     def cleanup(self):
         self._reset_all_colors()
         refresh_idaview_anyway()
@@ -66,38 +72,41 @@ class hxe_hook_t(Hexrays_Hooks):
         if self.idbhook:
             self.idbhook.unhook()
             self.idbhook = None
+        return
  
-    def _reset_colors(self, idx):
-        try:
-            v = self.pseudocode_instances[idx]
-            if len(v) == 2:
-                pseudocode, lineno, color = v[0]
+    def _reset_colors(self, idx, ignore_vd=False):
+        v = self.pseudocode_instances[idx]
+        if v:
+            pseudocode, lineno, color, disasm_lines = v
+            if not ignore_vd and pseudocode:
                 pseudocode[lineno].bgcolor = color
-                for ea, color in v[1]:
-                    set_item_color(ea, color)
-            self.pseudocode_instances.pop(idx)
-        except:
-            pass
+            for ea, color in disasm_lines:
+                set_item_color(ea, color)
+        self.pseudocode_instances.pop(idx)
+        return
 
-    def _reset_all_colors(self):
+    def _reset_all_colors(self, ignore_vd=False):
         # restore colors
-        for k in self.pseudocode_instances.keys():
-            self._reset_colors(k)
-        self.pseudocode_instances = {}
+        if self.pseudocode_instances:
+            for k in self.pseudocode_instances.keys():
+                self._reset_colors(k, ignore_vd)
+            self.pseudocode_instances = {}
+        return
 
     def _apply_colors(self, vd):
-        lineno = vd.cpos.lnnum
-        pseudocode = vd.cfunc.get_pseudocode()
-        decomp_line = (pseudocode, lineno, pseudocode[lineno].bgcolor)
-        l = self._get_item_ea_list(vd)
-        disasm_lines = [(ea, get_item_color(ea)) for ea in l]
-        if len(l):
-            jumpto(l[0], -1, UIJMP_IDAVIEW | UIJMP_DONTPUSH)
-        self.pseudocode_instances[vd.view_idx] = (decomp_line, disasm_lines)
+        result = self._get_vd_context(vd)
+        if result:
+            pseudocode, lineno, col, item_ea_list = result
+            disasm_lines = [(ea, get_item_color(ea)) for ea in item_ea_list]
+            if len(item_ea_list):
+                jumpto(item_ea_list[0], -1, UIJMP_IDAVIEW | UIJMP_DONTPUSH)
+            self.pseudocode_instances[vd.view_idx] = (pseudocode, lineno, col, disasm_lines)
 
-        pseudocode[lineno].bgcolor = HL_COLOR
-        for ea, _ in disasm_lines:
-            set_item_color(ea, HL_COLOR)
+            if pseudocode:
+                pseudocode[lineno].bgcolor = HL_COLOR
+            for ea, _ in disasm_lines:
+                set_item_color(ea, HL_COLOR)
+        return
 
     def _get_item_indexes(self, line):
         indexes = []
@@ -109,20 +118,26 @@ class hxe_hook_t(Hexrays_Hooks):
             pos = line.find(tag, pos+len(tag)+COLOR_ADDR_SIZE)
         return indexes
 
-    def _get_item_ea_list(self, vd):
-        lineno = vd.cpos.lnnum
-        line = vd.cfunc.get_pseudocode()[lineno].line
-       
-        item_idxs = self._get_item_indexes(line)
-        ea_list = {}
-        for i in item_idxs:
-            try:
-                item = vd.cfunc.treeitems.at(i)
-                if item and item.ea != BADADDR:
-                    ea_list[item.ea] = None
-            except:
-                pass
-        return sorted(ea_list.keys())
+    def _get_vd_context(self, vd):
+        if vd:
+            lineno = vd.cpos.lnnum
+            pseudocode = vd.cfunc.get_pseudocode()
+
+            if pseudocode:
+                color = pseudocode[lineno].bgcolor
+                line = pseudocode[lineno].line
+               
+                item_idxs = self._get_item_indexes(line)
+                ea_list = {}
+                for i in item_idxs:
+                    try:
+                        item = vd.cfunc.treeitems.at(i)
+                        if item and item.ea != BADADDR:
+                            ea_list[item.ea] = None
+                    except:
+                        pass
+                return (pseudocode, lineno, color, sorted(ea_list.keys()))
+        return None
 
 # -----------------------------------------------------------------------
 def is_ida_version(requested):
