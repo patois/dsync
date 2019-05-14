@@ -6,4 +6,6 @@ Please refer to comments in source code for more details.
 
 Requires 7.2
 
-![Dsync animated gif](/rsrc/sync.gif?raw=true)
+![dsync animated gif](/rsrc/sync.gif?raw=true)
+
+![dsync hint animated gif](/rsrc/hint.gif?raw=true)

@@ -7,7 +7,9 @@ disassembly to decompiled code).
 
 It also highlights all addresses (code and data definitions) involved. Pressing the
 hotkey Ctrl-Shift-S switches synchronization on and off. Hovering over pseudocode
-items will display corresponding disassembled code in a hint window.
+items will display corresponding disassembled code in a hint window. The item that
+belongs to the item that is located under the cursor will be highlighted and pointed
+to by an arrow.
 
 The plugin requires IDA 7.2.
 """
@@ -33,6 +35,7 @@ class hxe_hook_t(Hexrays_Hooks):
         self.idbhook = idb_hook_t(self)
         self.idbhook.hook()
         self.pseudocode_instances = {}
+        self.n_spaces = 40
 
     def close_pseudocode(self, vd):
         self._reset_colors(vd.view_idx, ignore_vd=True)
@@ -43,14 +46,31 @@ class hxe_hook_t(Hexrays_Hooks):
         result = self._get_vd_context(vd)
         if result:
             _, _, _, item_ea_list = result
-            count = len(item_ea_list)
-            if count:
-                lines = ["0x%x: %s\n" % (ea, generate_disasm_line(ea, 0)) for ea in item_ea_list]
-                postfix = "\n"+len(tag_remove(max(lines, key=len)))*"-"+"\n"
-                custom_hints = "".join(lines) + postfix
-                # ask decompiler to append default hints
-                return (2, custom_hints, custom_hints.count("\n") + 1)
 
+            if len(item_ea_list):
+                if vd.get_current_item(USE_MOUSE):
+                    cur_item_ea = vd.item.it.ea
+                else:
+                    cur_item_ea = BADADDR
+
+                lines = []
+                for ea in item_ea_list:
+                    disasm_line = generate_disasm_line(ea, 0)
+                    addr = "0x%x: " % ea
+                    
+                    if cur_item_ea == ea:
+                        prefix = COLSTR("==> %s" % addr, SCOLOR_INSN)
+                    else:
+                        prefix = "    " + addr
+
+                    lines.append(prefix+disasm_line)
+
+                lines.append("")
+                lines.append(self.n_spaces * "-")
+                lines.append("")
+                custom_hints = "\n".join(lines)
+                # ask decompiler to append default hints
+                return (2, custom_hints, len(lines))
         return 0
 
     def curpos(self, vd):
@@ -79,7 +99,10 @@ class hxe_hook_t(Hexrays_Hooks):
         if v:
             pseudocode, lineno, color, disasm_lines = v
             if not ignore_vd and pseudocode:
-                pseudocode[lineno].bgcolor = color
+                try:
+                    pseudocode[lineno].bgcolor = color
+                except: # wtf
+                    pass
             for ea, color in disasm_lines:
                 set_item_color(ea, color)
         self.pseudocode_instances.pop(idx)
@@ -100,10 +123,16 @@ class hxe_hook_t(Hexrays_Hooks):
             disasm_lines = [(ea, get_item_color(ea)) for ea in item_ea_list]
             if len(item_ea_list):
                 jumpto(item_ea_list[0], -1, UIJMP_IDAVIEW | UIJMP_DONTPUSH)
+                # it'd be great if jumpto() refreshed the disasm like the following
+                # call without changing focus
+                # vd.ctree_to_disasm()
             self.pseudocode_instances[vd.view_idx] = (pseudocode, lineno, col, disasm_lines)
 
             if pseudocode:
-                pseudocode[lineno].bgcolor = HL_COLOR
+                try:
+                    pseudocode[lineno].bgcolor = HL_COLOR
+                except: # wtf
+                    pass
             for ea, _ in disasm_lines:
                 set_item_color(ea, HL_COLOR)
         return
@@ -123,20 +152,23 @@ class hxe_hook_t(Hexrays_Hooks):
             lineno = vd.cpos.lnnum
             pseudocode = vd.cfunc.get_pseudocode()
 
-            if pseudocode:
-                color = pseudocode[lineno].bgcolor
-                line = pseudocode[lineno].line
-               
-                item_idxs = self._get_item_indexes(line)
-                ea_list = {}
-                for i in item_idxs:
-                    try:
-                        item = vd.cfunc.treeitems.at(i)
-                        if item and item.ea != BADADDR:
-                            ea_list[item.ea] = None
-                    except:
-                        pass
-                return (pseudocode, lineno, color, sorted(ea_list.keys()))
+            if pseudocode and lineno != -1:
+                try:
+                    color = pseudocode[lineno].bgcolor
+                    line = pseudocode[lineno].line
+                   
+                    item_idxs = self._get_item_indexes(line)
+                    ea_list = {}
+                    for i in item_idxs:
+                        try:
+                            item = vd.cfunc.treeitems.at(i)
+                            if item and item.ea != BADADDR:
+                                ea_list[item.ea] = None
+                        except:
+                            pass
+                    return (pseudocode, lineno, color, sorted(ea_list.keys()))
+                except:
+                    pass
         return None
 
 # -----------------------------------------------------------------------
