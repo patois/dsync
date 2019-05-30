@@ -123,9 +123,6 @@ class hxe_hook_t(Hexrays_Hooks):
             disasm_lines = [(ea, get_item_color(ea)) for ea in item_ea_list]
             if len(item_ea_list):
                 jumpto(item_ea_list[0], -1, UIJMP_IDAVIEW | UIJMP_DONTPUSH)
-                # it'd be great if jumpto() refreshed the disasm like the following
-                # call without changing focus
-                # vd.ctree_to_disasm()
             self.pseudocode_instances[vd.view_idx] = (pseudocode, lineno, col, disasm_lines)
 
             if pseudocode:
@@ -141,7 +138,7 @@ class hxe_hook_t(Hexrays_Hooks):
         indexes = []
         tag = COLOR_ON + chr(COLOR_ADDR)
         pos = line.find(tag)
-        while pos != -1 and line[pos+len(tag):] >= COLOR_ADDR_SIZE:
+        while pos != -1 and len(line[pos+len(tag):]) >= COLOR_ADDR_SIZE:
             item_idx = line[pos+len(tag):pos+len(tag)+COLOR_ADDR_SIZE]
             indexes.append(int(item_idx, 16))
             pos = line.find(tag, pos+len(tag)+COLOR_ADDR_SIZE)
@@ -187,7 +184,6 @@ def is_ida_version(requested):
 
 # -----------------------------------------------------------------------
 class Dsync(ida_idaapi.plugin_t):
-    flags = 0
     comment = ''
     help = ''
     flags = PLUGIN_MOD
