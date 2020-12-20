@@ -11,10 +11,10 @@ items will display corresponding disassembled code in a hint window. The item th
 belongs to the item that is located under the cursor will be highlighted and pointed
 to by an arrow.
 
-The plugin requires IDA 7.2.
+The plugin requires IDA 7.3.
 """
 
-__author__ = 'Dennis Elser'
+__author__ = 'https://github.com/patois'
 
 HL_COLOR = 0xAD8044
 
@@ -56,14 +56,15 @@ class hxe_hook_t(Hexrays_Hooks):
                 lines = []
                 for ea in item_ea_list:
                     disasm_line = generate_disasm_line(ea, 0)
-                    addr = "0x%x: " % ea
-                    
-                    if cur_item_ea == ea:
-                        prefix = COLSTR("==> %s" % addr, SCOLOR_INSN)
-                    else:
-                        prefix = "    " + addr
+                    if disasm_line:
+                        addr = "0x%x: " % ea
+                        
+                        if cur_item_ea == ea:
+                            prefix = COLSTR("==> %s" % addr, SCOLOR_INSN)
+                        else:
+                            prefix = "    " + addr
 
-                    lines.append(prefix+disasm_line)
+                        lines.append(prefix+disasm_line)
 
                 lines.append("")
                 lines.append(self.n_spaces * "-")
@@ -74,8 +75,6 @@ class hxe_hook_t(Hexrays_Hooks):
         return 0
 
     def curpos(self, vd):
-        # workaround for a bug in IDA/Decompiler <= 7.2
-        vd.refresh_cpos(USE_KEYBOARD)
         self._reset_all_colors()
         self._apply_colors(vd)
         refresh_idaview_anyway()
@@ -111,7 +110,8 @@ class hxe_hook_t(Hexrays_Hooks):
     def _reset_all_colors(self, ignore_vd=False):
         # restore colors
         if self.pseudocode_instances:
-            for k in self.pseudocode_instances.keys():
+            pi = list(self.pseudocode_instances)
+            for k in pi:
                 self._reset_colors(k, ignore_vd)
             self.pseudocode_instances = {}
         return
@@ -139,8 +139,21 @@ class hxe_hook_t(Hexrays_Hooks):
         tag = COLOR_ON + chr(COLOR_ADDR)
         pos = line.find(tag)
         while pos != -1 and len(line[pos+len(tag):]) >= COLOR_ADDR_SIZE:
-            item_idx = line[pos+len(tag):pos+len(tag)+COLOR_ADDR_SIZE]
-            indexes.append(int(item_idx, 16))
+            addr = line[pos+len(tag):pos+len(tag)+COLOR_ADDR_SIZE]
+            idx = int(addr, 16)
+            a = ctree_anchor_t()
+            a.value = idx
+            if a.is_valid_anchor() and a.is_citem_anchor():
+                """
+                print "a.value %s %d lvar %s citem %s itp %s blkcmt %s" % (
+                    a.is_valid_anchor(),
+                    a.get_index(),
+                    a.is_lvar_anchor(),
+                    a.is_citem_anchor(),
+                    a.is_itp_anchor(),
+                    a.is_blkcmt_anchor())
+                """
+                indexes.append(a.get_index())
             pos = line.find(tag, pos+len(tag)+COLOR_ADDR_SIZE)
         return indexes
 
@@ -169,18 +182,8 @@ class hxe_hook_t(Hexrays_Hooks):
         return None
 
 # -----------------------------------------------------------------------
-def is_ida_version(requested):
-    rv = requested.split(".")
-    kv = get_kernel_version().split(".")
-
-    count = min(len(rv), len(kv))
-    if not count:
-        return False
-
-    for i in xrange(count):
-        if int(kv[i]) < int(rv[i]):
-            return False
-    return True
+def is_ida_version(min_ver_required):
+    return IDA_SDK_VERSION >= min_ver_required
 
 # -----------------------------------------------------------------------
 class Dsync(ida_idaapi.plugin_t):
@@ -192,8 +195,7 @@ class Dsync(ida_idaapi.plugin_t):
     hxehook = None
 
     def init(self):
-        required_ver = "7.2"
-        if not is_ida_version(required_ver) or not init_hexrays_plugin():
+        if not is_ida_version(730) or not init_hexrays_plugin():
             msg ("[!] '%s' is inactive (IDA v%s and decompiler required).\n" % (Dsync.wanted_name, required_ver))
             return PLUGIN_SKIP
 
