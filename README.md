@@ -4,7 +4,7 @@ IDAPython plugin that synchronizes decompiled and disassembled code views.
 
 Please refer to comments in source code for more details.
 
-Requires 7.2
+Requires IDA Pro 7.3
 
 ![dsync animated gif](/rsrc/sync.gif?raw=true)
 
