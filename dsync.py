@@ -195,8 +195,9 @@ class Dsync(ida_idaapi.plugin_t):
     hxehook = None
 
     def init(self):
-        if not is_ida_version(730) or not init_hexrays_plugin():
-            msg ("[!] '%s' is inactive (IDA v%s and decompiler required).\n" % (Dsync.wanted_name, required_ver))
+        required_ver = 730
+        if not is_ida_version(required_ver) or not init_hexrays_plugin():
+            msg ("[!] '%s' is inactive (IDA v%d and decompiler required).\n" % (Dsync.wanted_name, required_ver))
             return PLUGIN_SKIP
 
         msg("[+] '%s' loaded. %s activates/deactivates synchronization.\n" % (Dsync.wanted_name, Dsync.wanted_hotkey))
