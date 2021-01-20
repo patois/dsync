@@ -10,4 +10,4 @@ Requires IDA Pro 7.3
 
 ![dsync hint animated gif](/rsrc/hint.gif?raw=true)
 
-N.B.: You may want to use the official synchronization feature introduced with (IDA 7.3)[https://www.hex-rays.com/products/ida/news/7_3/] instead.
+N.B.: You may want to use the official synchronization feature introduced with [IDA 7.3](https://www.hex-rays.com/products/ida/news/7_3/) instead.
